@@ -1,0 +1,17 @@
+{
+  "name": "ai-rehab-guide",
+  "version": "1.0.0",
+  "description": "AI运动康复思路助手 — 输入症状，输出康复训练思路",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "UNLICENSED"
+}
