@@ -4,7 +4,7 @@
  */
 const express = require('express');
 const path = require('path');
-const { matchSymptom, getApproach, searchSymptoms, getSymptomsByJoint } = require('./js/knowledge-base');
+const { matchSymptom, matchSymptomWithFilters, getApproach, searchSymptoms, getSymptomsByJoint } = require('./js/knowledge-base');
 
 const app = express();
 const PORT = process.env.PORT || 3099;
@@ -13,24 +13,30 @@ const PORT = process.env.PORT || 3099;
 app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
-// API: 症状匹配
+// API: 症状匹配（支持筛选条件）
 app.post('/api/analyze', (req, res) => {
   try {
-    const { symptom } = req.body;
-    if (!symptom || symptom.trim().length < 2) {
-      return res.json({ found: false, message: '请输入症状描述' });
+    const { symptom, filters } = req.body;
+    const hasFilters = filters && (filters.region || filters.painType || filters.trigger);
+    if (!symptom && !hasFilters) {
+      return res.json({ found: false, message: '请输入症状描述或选择部位' });
     }
-    const result = matchSymptom(symptom);
+    let result;
+    if (hasFilters) {
+      result = matchSymptomWithFilters(symptom || '', filters);
+    } else {
+      result = matchSymptom(symptom);
+    }
     if (!result.found) {
       return res.json(result);
     }
-    // 返回第一个根源方案
-    const approach = getApproach(result.symptomData, 0);
+    const approach = getApproach(result.symptomData, result.currentCauseIndex);
     return res.json({
       found: true,
       symptomName: result.symptomName,
       related_joints: result.related_joints,
       totalCauses: result.totalCauses,
+      currentCauseIndex: result.currentCauseIndex,
       approach: approach
     });
   } catch (e) {

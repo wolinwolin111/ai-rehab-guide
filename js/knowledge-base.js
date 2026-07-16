@@ -2455,13 +2455,7 @@ function matchSymptom(inputText) {
   return buildResponse(scored[0].name, scored[0].data, inputText);
 }
 
-function buildResponse(name, data, inputText) {
-  return {
-    found: true, symptomName: name, symptomData: data,
-    currentCauseIndex: 0, totalCauses: data.root_causes.length,
-    related_joints: data.related_joints
-  };
-}
+// (旧版buildResponse已删除，统一使用下方新版)
 
 function getApproach(symptomData, causeIndex) {
   if (!symptomData || causeIndex >= symptomData.root_causes.length) return null;
@@ -2506,6 +2500,8 @@ if (typeof window !== 'undefined') {
   window.getApproach = getApproach;
   window.searchSymptoms = searchSymptoms;
   window.getSymptomsByJoint = getSymptomsByJoint;
+  // 覆盖旧版buildResponse，使用支持causeIndex的新版
+  window.buildResponse = buildResponse;
 }
 if (typeof module !== 'undefined') {
   module.exports = { SYMPTOM_DB, matchSymptom, getApproach, searchSymptoms, getSymptomsByJoint };
@@ -2590,7 +2586,47 @@ function matchSymptomWithFilters(inputText, filters) {
             SYMPTOM_DB[name].synonyms.some(s => s.includes(text) || text.includes(s)))) {
           symptoms.push({ name, data: SYMPTOM_DB[name], score: 90 });
         } else {
-          symptoms.push({ name, data: SYMPTOM_DB[name], score: 40 }); // 区域内无文本匹配给基础分
+          // 无文本时：基于子区域/诱发/疼痛性质构建差异化初始分
+          let baseScore = 20;
+          const sdata = SYMPTOM_DB[name];
+          const allText = (name + ' ' + (sdata.synonyms||[]).join(' ')).toLowerCase();
+
+          // 子区域方向匹配
+          if (filters.subRegion) {
+            const sub = filters.subRegion.toLowerCase();
+            if ((sub.includes('前') && (allText.includes('前')||allText.includes('上楼')||allText.includes('下楼'))) ||
+                (sub.includes('后') && (allText.includes('后')||allText.includes('后伸'))) ||
+                (sub.includes('内') && (allText.includes('内')||allText.includes('高尔夫'))) ||
+                (sub.includes('外') && (allText.includes('外')||allText.includes('网球')||allText.includes('itbs')))) {
+              baseScore += 25;
+            }
+          }
+
+          // 诱发条件预匹配
+          if (filters.trigger && TRIGGER_WEIGHTS[filters.trigger]) {
+            const tw = TRIGGER_WEIGHTS[filters.trigger];
+            for (const kw of (tw.keywords||[])) {
+              if (allText.includes(kw)) baseScore += 15;
+            }
+            // 症状名直接包含诱发词
+            const t = filters.trigger.toLowerCase();
+            if (allText.includes(t)) baseScore += 20;
+          }
+
+          // 疼痛性质预匹配
+          if (filters.painType && PAIN_TYPE_WEIGHTS[filters.painType]) {
+            const pw = PAIN_TYPE_WEIGHTS[filters.painType];
+            for (const cause of (sdata.root_causes||[])) {
+              for (const kw of pw.keywords) {
+                if ((cause.explain||'').includes(kw) || (cause.issue||'').includes(kw)) {
+                  baseScore += 10;
+                  break;
+                }
+              }
+            }
+          }
+
+          symptoms.push({ name, data: sdata, score: baseScore });
         }
       }
     }
@@ -2730,7 +2766,10 @@ if (typeof window !== 'undefined') {
   window.REGION_SYMPTOM_MAP = REGION_SYMPTOM_MAP;
   window.PAIN_TYPE_WEIGHTS = PAIN_TYPE_WEIGHTS;
   window.TRIGGER_WEIGHTS = TRIGGER_WEIGHTS;
+  // 确保新版buildResponse覆盖旧版
+  window.buildResponse = buildResponse;
 }
 if (typeof module !== 'undefined') {
-  module.exports.matchSymptomWithFilters = matchSymptomWithFilters;
+  module.exports = { SYMPTOM_DB, matchSymptom, getApproach, searchSymptoms, getSymptomsByJoint,
+    matchSymptomWithFilters, REGION_SYMPTOM_MAP, PAIN_TYPE_WEIGHTS, TRIGGER_WEIGHTS, buildResponse };
 }
