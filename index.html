@@ -26,6 +26,86 @@
     <div class="suggestions" id="suggestions"></div>
   </section>
 
+  <!-- Precision filter toggle -->
+  <div style="text-align:center;margin:8px 0">
+    <button class="btn btn-outline" id="btnPrecision" onclick="togglePrecisionPanel()" style="font-size:15px">
+      🎯 精准分析：分步问诊（30秒）
+    </button>
+  </div>
+
+  <!-- Precision filter panel -->
+  <div class="precision-panel" id="precisionPanel">
+    <!-- Step progress -->
+    <div class="precision-steps" id="precisionSteps">
+      <div class="p-step active" data-step="1"><span>1</span>部位</div>
+      <div class="p-step-arrow">→</div>
+      <div class="p-step" data-step="2"><span>2</span>性质</div>
+      <div class="p-step-arrow">→</div>
+      <div class="p-step" data-step="3"><span>3</span>诱发</div>
+    </div>
+
+    <!-- Step1: Region -->
+    <div class="p-step-body active" id="pStep1">
+      <h4>Step1：哪个部位不舒服？</h4>
+      <div class="region-grid" id="regionGrid">
+        <div class="region-item" data-region="膝关节" onclick="selectRegion('膝关节',this)">🦵 膝关节</div>
+        <div class="region-item" data-region="肩关节" onclick="selectRegion('肩关节',this)">💪 肩关节</div>
+        <div class="region-item" data-region="腰椎" onclick="selectRegion('腰椎',this)">🔙 腰椎</div>
+        <div class="region-item" data-region="颈椎" onclick="selectRegion('颈椎',this)">🧣 颈椎</div>
+        <div class="region-item" data-region="髋关节" onclick="selectRegion('髋关节',this)">🦿 髋关节</div>
+        <div class="region-item" data-region="踝关节" onclick="selectRegion('踝关节',this)">🦶 踝关节</div>
+        <div class="region-item" data-region="肘关节" onclick="selectRegion('肘关节',this)">💪 肘关节</div>
+        <div class="region-item" data-region="腕关节" onclick="selectRegion('腕关节',this)">🤲 腕关节</div>
+        <div class="region-item" data-region="其他" onclick="selectRegion('其他',this)">📋 其他</div>
+      </div>
+      <div class="sub-region-grid" id="subRegionGrid" style="display:none"></div>
+    </div>
+
+    <!-- Step2: Pain type -->
+    <div class="p-step-body" id="pStep2">
+      <h4>Step2：是什么样的痛？</h4>
+      <div class="pain-type-grid" id="painTypeGrid">
+        <div class="pain-card" data-pain="刺痛/锐痛" onclick="selectPainType('刺痛/锐痛',this)"><span class="p-icon">⚡</span><span class="p-label">刺痛/锐痛</span><span class="p-hint">像针刺、电击</span></div>
+        <div class="pain-card" data-pain="钝痛/酸痛" onclick="selectPainType('钝痛/酸痛',this)"><span class="p-icon">🔵</span><span class="p-label">钝痛/酸痛</span><span class="p-hint">闷闷的深部痛</span></div>
+        <div class="pain-card" data-pain="灼烧痛" onclick="selectPainType('灼烧痛',this)"><span class="p-icon">🔥</span><span class="p-label">灼烧痛</span><span class="p-hint">火烧一样的热痛</span></div>
+        <div class="pain-card" data-pain="牵拉痛" onclick="selectPainType('牵拉痛',this)"><span class="p-icon">➰</span><span class="p-label">牵拉痛</span><span class="p-hint">被拉住的感觉</span></div>
+        <div class="pain-card" data-pain="酸胀感" onclick="selectPainType('酸胀感',this)"><span class="p-icon">😣</span><span class="p-label">酸胀感</span><span class="p-hint">沉重、发胀</span></div>
+        <div class="pain-card" data-pain="麻木感" onclick="selectPainType('麻木感',this)"><span class="p-icon">🫨</span><span class="p-label">麻木感</span><span class="p-hint">皮肤感觉减退</span></div>
+      </div>
+    </div>
+
+    <!-- Step3: Trigger -->
+    <div class="p-step-body" id="pStep3">
+      <h4>Step3：什么动作/场景会引发？</h4>
+      <div class="trigger-grid" id="triggerGrid">
+        <div class="trigger-item" data-trigger="上楼梯" onclick="selectTrigger('上楼梯',this)">🪜 上楼梯</div>
+        <div class="trigger-item" data-trigger="下楼梯" onclick="selectTrigger('下楼梯',this)">🪜 下楼梯</div>
+        <div class="trigger-item" data-trigger="深蹲" onclick="selectTrigger('深蹲',this)">🏋️ 深蹲</div>
+        <div class="trigger-item" data-trigger="久坐后站起" onclick="selectTrigger('久坐后站起',this)">🪑 久坐后站起</div>
+        <div class="trigger-item" data-trigger="弯腰" onclick="selectTrigger('弯腰',this)">⬇️ 弯腰</div>
+        <div class="trigger-item" data-trigger="后伸" onclick="selectTrigger('后伸',this)">⬆️ 后伸</div>
+        <div class="trigger-item" data-trigger="低头" onclick="selectTrigger('低头',this)">📱 低头</div>
+        <div class="trigger-item" data-trigger="转头" onclick="selectTrigger('转头',this)">🔄 转头</div>
+        <div class="trigger-item" data-trigger="抬手/上举" onclick="selectTrigger('抬手/上举',this)">🙋 抬手/上举</div>
+        <div class="trigger-item" data-trigger="支撑" onclick="selectTrigger('支撑',this)">🤲 支撑</div>
+        <div class="trigger-item" data-trigger="抓握" onclick="selectTrigger('抓握',this)">✊ 抓握</div>
+        <div class="trigger-item" data-trigger="跑步/跳跃" onclick="selectTrigger('跑步/跳跃',this)">🏃 跑步/跳跃</div>
+        <div class="trigger-item" data-trigger="夜间痛" onclick="selectTrigger('夜间痛',this)">🌙 夜间痛</div>
+        <div class="trigger-item" data-trigger="晨起" onclick="selectTrigger('晨起',this)">🌅 晨起</div>
+        <div class="trigger-item" data-trigger="长时间不动" onclick="selectTrigger('长时间不动',this)">⏸️ 长时间不动</div>
+      </div>
+    </div>
+
+    <!-- Filter actions -->
+    <div class="p-actions">
+      <button class="btn btn-ghost" onclick="clearFilters()">🔄 清除筛选</button>
+      <button class="btn btn-primary" onclick="doSearchWithFilters()">🔍 精准分析</button>
+    </div>
+    <div style="text-align:center;margin-top:4px">
+      <span class="badge-filter" id="filterSummary"></span>
+    </div>
+  </div>
+
   <!-- Quick tags -->
   <div class="quick-tags" id="quickTags">
     <span class="quick-tag" onclick="quickSearch('膝盖上楼梯痛')">🦵 膝盖上楼痛</span>

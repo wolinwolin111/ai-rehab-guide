@@ -141,3 +141,87 @@ body { font-family:var(--font); background:var(--bg); color:var(--text); line-he
   .container { padding:24px; }
   .card { padding:24px; }
 }
+
+/* ======= Precision Filter Panel ======= */
+.precision-panel {
+  display:none;
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);
+  padding:16px;
+  margin-bottom:16px;
+  border:1.5px solid var(--primary);
+}
+.precision-panel.show { display:block; }
+.precision-steps {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin-bottom:16px; padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
+.p-step {
+  display:flex; align-items:center; gap:4px;
+  font-size:13px; color:var(--text-secondary);
+  padding:6px 12px; border-radius:16px; background:var(--bg);
+  transition:all 0.2s;
+}
+.p-step span {
+  width:22px; height:22px; border-radius:50%;
+  background:var(--border); color:var(--text-secondary);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700;
+  transition:all 0.2s;
+}
+.p-step.active { color:var(--primary-dark); background:var(--primary-light); font-weight:600; }
+.p-step.active span { background:var(--primary); color:#fff; }
+.p-step-arrow { font-size:16px; color:var(--border); }
+.p-step-body { display:none; }
+.p-step-body.active { display:block; }
+.p-step-body h4 { font-size:15px; margin-bottom:12px; color:var(--text); }
+
+/* Region grid */
+.region-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.region-item {
+  padding:12px 8px; text-align:center; border:2px solid var(--border);
+  border-radius:var(--radius-sm); font-size:14px; cursor:pointer;
+  transition:all 0.2s; background:var(--card);
+}
+.region-item:hover { border-color:var(--primary); background:var(--primary-light); }
+.region-item.selected { border-color:var(--primary); background:var(--primary-light); font-weight:600; color:var(--primary-dark); }
+
+/* Sub-region */
+.sub-region-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+.sub-region-item {
+  padding:8px 10px; text-align:center; border:1.5px solid var(--border);
+  border-radius:8px; font-size:13px; cursor:pointer; transition:all 0.2s;
+}
+.sub-region-item:hover { border-color:var(--primary); background:var(--primary-light); }
+.sub-region-item.selected { border-color:var(--primary); background:var(--primary-light); font-weight:600; }
+
+/* Pain type cards */
+.pain-type-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.pain-card {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:14px 8px; border:2px solid var(--border); border-radius:var(--radius-sm);
+  cursor:pointer; transition:all 0.2s; text-align:center;
+}
+.pain-card:hover { border-color:var(--primary); background:var(--primary-light); }
+.pain-card.selected { border-color:var(--primary); background:var(--primary-light); transform:scale(1.02); }
+.pain-card .p-icon { font-size:28px; }
+.pain-card .p-label { font-size:13px; font-weight:600; color:var(--text); }
+.pain-card .p-hint { font-size:11px; color:var(--text-secondary); }
+
+/* Trigger grid */
+.trigger-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.trigger-item {
+  padding:10px 6px; text-align:center; border:1.5px solid var(--border);
+  border-radius:10px; font-size:12px; cursor:pointer; transition:all 0.2s;
+}
+.trigger-item:hover { border-color:var(--primary); background:var(--primary-light); }
+.trigger-item.selected { border-color:var(--primary); background:var(--primary-light); font-weight:600; }
+
+/* P-actions */
+.p-actions { display:flex; gap:10px; margin-top:14px; justify-content:center; padding-top:12px; border-top:1px solid var(--border); }
+.badge-filter {
+  display:inline-block; background:var(--primary-light); color:var(--primary-dark);
+  font-size:12px; padding:3px 10px; border-radius:12px; font-weight:500;
+}
