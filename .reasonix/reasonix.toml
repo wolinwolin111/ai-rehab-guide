@@ -1,0 +1,6 @@
+﻿# AI康复思路助手 - Reasonix Project Config
+
+[skills]
+paths = [
+  "C:\\Users\\26259\\.config\\opencode\\skills"
+]
