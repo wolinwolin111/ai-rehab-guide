@@ -170,28 +170,34 @@ function updateFilterSummary() {
 }
 
 // ========== 搜索执行 ==========
+/**
+ * 主搜索：优先使用多维筛选匹配引擎
+ */
 function doSearch() {
   const input = document.getElementById('searchInput').value.trim();
   if (!input && !filterState.region) return;
   document.getElementById('suggestions').classList.remove('show');
   showLoading(true);
 
-  // 构建筛选文本
-  let query = input;
-  let filters = { ...filterState };
+  const filters = { ...filterState };
 
   // 如果有筛选条件但无文本输入，用筛选条件构建查询
+  let query = input;
   if (!query && filters.region) {
-    query = filters.region + (filters.subRegion ? filters.subRegion : '') + '痛';
-    if (filters.trigger) query = filters.trigger + '时' + query;
+    const parts = [filters.region];
+    if (filters.subRegion) parts.push(filters.subRegion);
+    if (filters.trigger) parts.push(filters.trigger + '时');
+    parts.push('痛');
+    query = parts.join('');
   }
 
   setTimeout(() => {
-    let result = matchSymptom(query);
-
-    // 多维筛选加持：如果匹配到了，用筛选条件再精调
-    if (result.found && (filters.region || filters.painType || filters.trigger)) {
-      result = applyPrecisionFilter(result, filters);
+    // 使用增强版多维筛选匹配引擎
+    let result;
+    if (filters.region || filters.painType || filters.trigger) {
+      result = matchSymptomWithFilters(query, filters);
+    } else {
+      result = matchSymptom(query);
     }
 
     showLoading(false);
@@ -214,52 +220,21 @@ function doSearchWithFilters() {
   doSearch();
 }
 
-// 应用筛选条件进一步精调匹配结果
+// applyPrecisionFilter 保留用于兼容，实际匹配已在 matchSymptomWithFilters 中完成
 function applyPrecisionFilter(result, filters) {
   if (!result || !result.found) return result;
-
-  // 如果指定了区域，确保结果中的关联关节匹配
+  // 增强匹配已在前端 engine 中完成，这里做兜底
   if (filters.region && result.symptomData) {
     const joints = result.symptomData.related_joints || [];
-    // 尝试在区域内找到更精确的症状
-    const allSymptoms = getSymptomsByJoint();
-    const regionSymptoms = allSymptoms[filters.region] || [];
-    if (regionSymptoms.length > 0) {
-      // 在区域症状中找到与当前结果最匹配的
-      let bestName = result.symptomName;
-      let bestData = result.symptomData;
-      let inRegion = regionSymptoms.includes(bestName);
-
-      if (!inRegion) {
-        // 找区域中最相关的
-        for (const sname of regionSymptoms) {
-          if (SYMPTOM_DB[sname]) {
-            // 根据疼痛性质和诱发条件进一步筛选
-            if (filters.painType) {
-              const issue = SYMPTOM_DB[sname].root_causes[0].explain || '';
-              if (filters.painType === '刺痛/锐痛' && !issue.includes('神经')) continue;
-              if (filters.painType === '钝痛/酸痛' && (issue.includes('神经') || issue.includes('麻'))) continue;
-            }
-            bestName = sname;
-            bestData = SYMPTOM_DB[sname];
-            break;
-          }
-        }
-        result.symptomName = bestName;
-        result.symptomData = bestData;
-        result.related_joints = bestData.related_joints;
-        result.totalCauses = bestData.root_causes.length;
+    if (!joints.some(j => j.includes(filters.region.replace('关节','')))) {
+      // 不匹配则尝试在区域内查找
+      const regionSymptoms = REGION_SYMPTOM_MAP ? (REGION_SYMPTOM_MAP[filters.region] || []) : [];
+      if (regionSymptoms.length > 0 && SYMPTOM_DB[regionSymptoms[0]]) {
+        result.symptomName = regionSymptoms[0];
+        result.symptomData = SYMPTOM_DB[regionSymptoms[0]];
+        result.related_joints = result.symptomData.related_joints;
+        result.totalCauses = result.symptomData.root_causes.length;
         result.currentCauseIndex = 0;
-      } else {
-        // 在区域内，但可能根据疼痛性质重排根源
-        if (filters.painType && result.symptomData.root_causes.length > 1) {
-          const causes = result.symptomData.root_causes;
-          if (filters.painType === '刺痛/锐痛' || filters.painType === '麻木感') {
-            // 优先神经相关根源
-            const neuroIdx = causes.findIndex(c => c.explain.includes('神经'));
-            if (neuroIdx >= 0) result.currentCauseIndex = neuroIdx;
-          }
-        }
       }
     }
   }

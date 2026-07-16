@@ -39,9 +39,9 @@
     <div class="precision-steps" id="precisionSteps">
       <div class="p-step active" data-step="1"><span>1</span>部位</div>
       <div class="p-step-arrow">→</div>
-      <div class="p-step" data-step="2"><span>2</span>性质</div>
+      <div class="p-step active" data-step="2"><span>2</span>性质</div>
       <div class="p-step-arrow">→</div>
-      <div class="p-step" data-step="3"><span>3</span>诱发</div>
+      <div class="p-step active" data-step="3"><span>3</span>诱发</div>
     </div>
 
     <!-- Step1: Region -->
@@ -62,7 +62,7 @@
     </div>
 
     <!-- Step2: Pain type -->
-    <div class="p-step-body" id="pStep2">
+    <div class="p-step-body active" id="pStep2">
       <h4>Step2：是什么样的痛？</h4>
       <div class="pain-type-grid" id="painTypeGrid">
         <div class="pain-card" data-pain="刺痛/锐痛" onclick="selectPainType('刺痛/锐痛',this)"><span class="p-icon">⚡</span><span class="p-label">刺痛/锐痛</span><span class="p-hint">像针刺、电击</span></div>
@@ -75,7 +75,7 @@
     </div>
 
     <!-- Step3: Trigger -->
-    <div class="p-step-body" id="pStep3">
+    <div class="p-step-body active" id="pStep3">
       <h4>Step3：什么动作/场景会引发？</h4>
       <div class="trigger-grid" id="triggerGrid">
         <div class="trigger-item" data-trigger="上楼梯" onclick="selectTrigger('上楼梯',this)">🪜 上楼梯</div>

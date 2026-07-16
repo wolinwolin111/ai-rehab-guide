@@ -2510,3 +2510,227 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined') {
   module.exports = { SYMPTOM_DB, matchSymptom, getApproach, searchSymptoms, getSymptomsByJoint };
 }
+
+
+// ==================== 增强匹配：多维筛选 ====================
+
+// 部位→症状映射
+const REGION_SYMPTOM_MAP = {
+  "膝关节": ["膝前痛","膝内侧痛","膝外侧痛","膝久坐痛"],
+  "肩关节": ["肩抬不起来","肩外展痛","肩后伸痛","肩夜间痛","肩侧睡痛"],
+  "腰椎": ["下背痛","久坐腰痛","弯腰痛","晨起腰痛"],
+  "颈椎": ["低头痛","转头痛","落枕","颈肩酸沉重"],
+  "髋关节": ["髋外侧痛","腹股沟痛","久坐起立痛","弹响髋"],
+  "踝关节": ["内翻扭伤后","习惯性崴脚"],
+  "肘关节": ["网球肘","高尔夫球肘","伸不直"],
+  "腕关节": ["支撑痛","鼠标手","拇指痛"],
+  "其他": ["足底痛","小腿紧","腘绳肌拉伤"]
+};
+
+// 疼痛性质→根源关键词权重映射
+const PAIN_TYPE_WEIGHTS = {
+  "刺痛/锐痛": { neuro: 30, inflammatory: 10, mechanical: 0, keywords: ["神经","卡压","放射","麻"] },
+  "钝痛/酸痛": { neuro: 0, inflammatory: 10, mechanical: 25, keywords: ["关节","退行","劳损","肌肉","负荷"] },
+  "灼烧痛":     { neuro: 5,  inflammatory: 35, mechanical: 0, keywords: ["炎症","滑囊","感染","急性"] },
+  "牵拉痛":     { neuro: 5,  inflammatory: 5,  mechanical: 25, keywords: ["挛缩","短缩","紧张","粘连","牵拉","拉伤"] },
+  "酸胀感":     { neuro: 0,  inflammatory: 5,  mechanical: 25, keywords: ["疲劳","代谢","慢性","过劳","代偿"] },
+  "麻木感":     { neuro: 35, inflammatory: 5,  mechanical: 0, keywords: ["神经","卡压","受压","传导","放射","椎间盘"] }
+};
+
+// 诱发条件→症状关键词加权映射
+const TRIGGER_WEIGHTS = {
+  "上楼梯":    { knee: 30, hip: 5, ankle: 10, keywords: ["上楼","前痛","髌股","股四头肌"] },
+  "下楼梯":    { knee: 30, hip: 5, ankle: 10, keywords: ["下楼","前痛","离心","控制"] },
+  "深蹲":      { knee: 25, hip: 15, ankle: 10, keywords: ["深蹲","屈曲","半月板","髌股"] },
+  "久坐后站起": { knee: 20, hip: 25, lumbar: 15, keywords: ["久坐","起立","髂腰肌","站起"] },
+  "弯腰":      { lumbar: 35, hip: 10, keywords: ["弯腰","屈曲","椎间盘","前倾"] },
+  "后伸":      { lumbar: 30, keywords: ["后伸","小关节","过伸","关节突"] },
+  "低头":      { cervical: 35, keywords: ["低头","屈曲","前倾","手机"] },
+  "转头":      { cervical: 30, keywords: ["转头","旋转","扭","颈椎旋转"] },
+  "抬手/上举": { shoulder: 35, keywords: ["抬手","上举","外展","过顶","上旋"] },
+  "支撑":      { wrist: 30, shoulder: 15, keywords: ["支撑","平板","承重","推"] },
+  "抓握":      { elbow: 25, wrist: 25, keywords: ["抓握","网球","高尔夫","拧"] },
+  "跑步/跳跃": { knee: 25, ankle: 15, foot: 15, keywords: ["跑步","跳跃","冲击","着地"] },
+  "夜间痛":    { shoulder: 20, general: 20, keywords: ["夜间","睡眠","夜间痛","静卧"] },
+  "晨起":      { lumbar: 15, general: 20, keywords: ["晨起","晨僵","早上","睡醒"] },
+  "长时间不动":{ knee: 15, lumbar: 15, general: 15, keywords: ["久坐","不动","长时间","不动"] }
+};
+
+// 部位名称→关节关键词映射
+const REGION_JOINT_KEY = {
+  "膝关节": "膝", "肩关节": "肩", "腰椎": "腰", "颈椎": "颈",
+  "髋关节": "髋", "踝关节": "踝", "肘关节": "肘", "腕关节": "腕", "其他": ""
+};
+
+/**
+ * 增强匹配：支持多维筛选条件
+ * @param {string} inputText - 用户自由文本输入
+ * @param {object} filters - { region, subRegion, painType, trigger }
+ * @returns {object} 匹配结果
+ */
+function matchSymptomWithFilters(inputText, filters) {
+  filters = filters || {};
+
+  // Step 0: 如果指定了区域，先缩小候选集
+  let candidateNames = null;
+  if (filters.region && REGION_SYMPTOM_MAP[filters.region]) {
+    candidateNames = REGION_SYMPTOM_MAP[filters.region];
+  }
+
+  // Step 1: 文本匹配（基础匹配）
+  const text = (inputText || '').toLowerCase().trim();
+  let symptoms = [];
+
+  // 如果有区域限制，只在区域内匹配
+  if (candidateNames) {
+    for (const name of candidateNames) {
+      if (SYMPTOM_DB[name]) {
+        // 区域内直接文本匹配
+        if (text && (name.includes(text) || text.includes(name) ||
+            SYMPTOM_DB[name].synonyms.some(s => s.includes(text) || text.includes(s)))) {
+          symptoms.push({ name, data: SYMPTOM_DB[name], score: 90 });
+        } else {
+          symptoms.push({ name, data: SYMPTOM_DB[name], score: 40 }); // 区域内无文本匹配给基础分
+        }
+      }
+    }
+  } else {
+    // 无区域限制，全局匹配
+    symptoms = [];
+    for (const [name, data] of Object.entries(SYMPTOM_DB)) {
+      let score = 0;
+      if (text && (name.includes(text) || text.includes(name) ||
+          data.synonyms.some(s => s.includes(text) || text.includes(s)))) {
+        score = 80;
+      }
+      symptoms.push({ name, data, score });
+    }
+  }
+
+  // Step 2: 疼痛性质加权（调整根源排序而非症状选择）
+  if (filters.painType && PAIN_TYPE_WEIGHTS[filters.painType]) {
+    const pw = PAIN_TYPE_WEIGHTS[filters.painType];
+    for (const s of symptoms) {
+      const causes = s.data.root_causes;
+      let painBonus = 0;
+      for (const kw of pw.keywords) {
+        // 检查所有根源的解释
+        for (const c of causes) {
+          if (c.explain.includes(kw) || c.issue.includes(kw)) {
+            painBonus += pw.mechanical + pw.neuro + pw.inflammatory;
+            break;
+          }
+        }
+        // 检查训练动作
+        for (const t of (s.data.training || [])) {
+          if ((t.focus || '').includes(kw) || (t.key_points || '').includes(kw)) {
+            painBonus += 5;
+            break;
+          }
+        }
+      }
+      s.score += Math.min(painBonus, 40); // 疼痛性质最多加40分
+    }
+  }
+
+  // Step 3: 诱发条件加权
+  if (filters.trigger && TRIGGER_WEIGHTS[filters.trigger]) {
+    const tw = TRIGGER_WEIGHTS[filters.trigger];
+    const triggerText = (filters.trigger || '').toLowerCase();
+    for (const s of symptoms) {
+      const allText = (s.name + ' ' + (s.data.synonyms || []).join(' ')).toLowerCase();
+      let triggerBonus = 0;
+      // 关键词匹配
+      for (const kw of (tw.keywords || [])) {
+        if (allText.includes(kw)) triggerBonus += 15;
+        // 检查根源解释
+        for (const c of s.data.root_causes) {
+          if (c.explain.includes(kw) || c.issue.includes(kw)) triggerBonus += 10;
+        }
+      }
+      // 区域加权
+      if (filters.region && REGION_JOINT_KEY[filters.region]) {
+        const jk = REGION_JOINT_KEY[filters.region];
+        for (const [joint, weight] of Object.entries(tw)) {
+          if (joint === 'general') continue;
+          if (jk === '膝' && joint === 'knee') triggerBonus += weight;
+          else if (jk === '肩' && joint === 'shoulder') triggerBonus += weight;
+          else if (jk === '腰' && joint === 'lumbar') triggerBonus += weight;
+          else if (jk === '颈' && joint === 'cervical') triggerBonus += weight;
+          else if (jk === '髋' && joint === 'hip') triggerBonus += weight;
+          else if (jk === '踝' && joint === 'ankle') triggerBonus += weight;
+          else if (jk === '肘' && joint === 'elbow') triggerBonus += weight;
+          else if (jk === '腕' && joint === 'wrist') triggerBonus += weight;
+        }
+      }
+      s.score += Math.min(triggerBonus, 50);
+    }
+  }
+
+  // Step 4: 子区域精调
+  if (filters.subRegion) {
+    const sub = filters.subRegion;
+    for (const s of symptoms) {
+      const allText = (s.name + ' ' + (s.data.synonyms || []).join(' ')).toLowerCase();
+      if ((sub.includes('前') && allText.includes('前')) ||
+          (sub.includes('后') && allText.includes('后')) ||
+          (sub.includes('内') && allText.includes('内')) ||
+          (sub.includes('外') && allText.includes('外'))) {
+        s.score += 20;
+      }
+    }
+  }
+
+  // 排序
+  symptoms.sort((a, b) => b.score - a.score);
+
+  if (symptoms.length === 0 || symptoms[0].score <= 0) {
+    return { found: false, message: '未找到匹配的康复思路。请尝试调整筛选条件。' };
+  }
+
+  const best = symptoms[0];
+
+  // Step 5: 根据疼痛性质调整根源排序
+  if (filters.painType && PAIN_TYPE_WEIGHTS[filters.painType]) {
+    const pw = PAIN_TYPE_WEIGHTS[filters.painType];
+    const causes = best.data.root_causes.map((c, i) => {
+      let weight = 0;
+      for (const kw of pw.keywords) {
+        if (c.explain.includes(kw) || c.issue.includes(kw)) weight += 10;
+      }
+      return { ...c, _origIndex: i, _painWeight: weight };
+    });
+    // 如果有疼痛性质的根源匹配，重新排序
+    if (causes.some(c => c._painWeight > 0)) {
+      causes.sort((a, b) => b._painWeight - a._painWeight);
+      // 更新 originalCauseIndex 指向最佳匹配的根源
+      const bestCauseIdx = causes[0]._origIndex;
+      return buildResponse(best.name, best.data, inputText, bestCauseIdx);
+    }
+  }
+
+  return buildResponse(best.name, best.data, inputText);
+}
+
+// 修改 buildResponse 支持指定根源索引
+function buildResponse(name, data, inputText, causeIndex) {
+  return {
+    found: true,
+    symptomName: name,
+    symptomData: data,
+    currentCauseIndex: causeIndex || 0,
+    totalCauses: data.root_causes.length,
+    related_joints: data.related_joints
+  };
+}
+
+// 导出新函数
+if (typeof window !== 'undefined') {
+  window.matchSymptomWithFilters = matchSymptomWithFilters;
+  window.REGION_SYMPTOM_MAP = REGION_SYMPTOM_MAP;
+  window.PAIN_TYPE_WEIGHTS = PAIN_TYPE_WEIGHTS;
+  window.TRIGGER_WEIGHTS = TRIGGER_WEIGHTS;
+}
+if (typeof module !== 'undefined') {
+  module.exports.matchSymptomWithFilters = matchSymptomWithFilters;
+}
