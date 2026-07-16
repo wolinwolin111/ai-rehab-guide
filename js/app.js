@@ -21,27 +21,10 @@ const SUB_REGIONS = {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-  initJointNav();
   initSearchInput();
 });
 
 // ========== 搜索相关 ==========
-function initJointNav() {
-  const joints = getSymptomsByJoint();
-  const grid = document.getElementById('jointGrid');
-  const emojis = { '膝关节':'🦵', '肩关节':'💪', '腰椎':'🔙', '颈椎':'🧣', '髋关节':'🦿', '踝关节':'🦶', '肘关节':'💪', '腕关节':'🤲', '其他':'📋' };
-  grid.innerHTML = '';
-  for (const [joint, symptoms] of Object.entries(joints)) {
-    const div = document.createElement('div');
-    div.className = 'joint-item';
-    div.innerHTML = `<span class="emoji">${emojis[joint]||'📋'}</span>${joint}`;
-    div.onclick = () => {
-      document.getElementById('searchInput').value = symptoms[0];
-      doSearch();
-    };
-    grid.appendChild(div);
-  }
-}
 
 function initSearchInput() {
   const input = document.getElementById('searchInput');
