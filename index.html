@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>AI运动康复思路助手</title>
+<meta name="description" content="输入症状，获得康复训练思路参考——面向普拉提/瑜伽/健身教练及康复自学者">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">🏥</div>
+    <h1>AI运动康复思路助手</h1>
+    <p class="subtitle">输入症状 → 获得「该处理哪里 + 怎么练」的康复思路</p>
+  </header>
+
+  <!-- Search -->
+  <section class="search-section">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="输入你的症状，如：膝盖上楼梯痛…" autocomplete="off">
+      <button class="btn-search" id="btnSearch" onclick="doSearch()">🔍 分析</button>
+    </div>
+    <div class="suggestions" id="suggestions"></div>
+  </section>
+
+  <!-- Quick tags -->
+  <div class="quick-tags" id="quickTags">
+    <span class="quick-tag" onclick="quickSearch('膝盖上楼梯痛')">🦵 膝盖上楼痛</span>
+    <span class="quick-tag" onclick="quickSearch('硬拉后下背痛')">🏋️ 硬拉下背痛</span>
+    <span class="quick-tag" onclick="quickSearch('平板支撑手腕痛')">🤲 手腕支撑痛</span>
+    <span class="quick-tag" onclick="quickSearch('肩抬不起来')">💪 肩抬不起来</span>
+    <span class="quick-tag" onclick="quickSearch('久坐腰痛')">🪑 久坐腰痛</span>
+    <span class="quick-tag" onclick="quickSearch('低头脖子痛')">📱 低头脖子痛</span>
+  </div>
+
+  <!-- Joint navigation -->
+  <section class="joint-nav">
+    <h3>📋 按部位浏览</h3>
+    <div class="joint-grid" id="jointGrid"></div>
+  </section>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>正在分析症状…</p>
+  </div>
+
+  <!-- Result section -->
+  <section class="result-section" id="resultSection">
+    <div class="result-header">
+      <span class="badge">✅ 匹配成功</span>
+      <h2 id="resultTitle"></h2>
+      <p class="related" id="resultRelated"></p>
+    </div>
+
+    <!-- Issue card -->
+    <div class="card" id="issueCard">
+      <div class="card-title">
+        <span class="icon">📍</span> 可能问题区域
+        <span id="likelihood" style="margin-left:auto"></span>
+      </div>
+      <p class="issue-desc" id="issueDesc"></p>
+      <div id="altInfo" style="display:none;margin-top:6px;font-size:12px;color:var(--text-secondary)"></div>
+    </div>
+
+    <!-- Manual techniques -->
+    <div class="card" id="manualCard">
+      <div class="card-title"><span class="icon">🖐</span> 建议处理手法</div>
+      <ul class="manual-list" id="manualList"></ul>
+    </div>
+
+    <!-- Training -->
+    <div class="card" id="trainingCard">
+      <div class="card-title"><span class="icon">🏋</span> 训练思路</div>
+      <div id="trainingList"></div>
+    </div>
+
+    <!-- Contraindications -->
+    <div class="card" id="contraCard">
+      <div class="card-title"><span class="icon">⚠️</span> 禁忌提示</div>
+      <div class="contraindications" id="contraList"></div>
+    </div>
+
+    <!-- Principle -->
+    <div class="card" id="principleCard">
+      <div class="card-title" style="cursor:pointer" onclick="togglePrinciple()">
+        <span class="icon">💡</span> 原理简析
+        <span style="margin-left:auto;font-size:12px;color:var(--text-secondary)" id="principleToggle">展开 ▼</span>
+      </div>
+      <div class="principle-detail" id="principleDetail"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-outline" id="btnSwitch" onclick="switchApproach()">🔄 换一种思路</button>
+      <button class="btn btn-outline" onclick="togglePrinciple()">💡 展开原理</button>
+      <button class="btn btn-ghost" onclick="scrollToTop()">🔝 回到顶部</button>
+    </div>
+  </section>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="emoji">🔍</div>
+    <h3>输入你的症状开始分析</h3>
+    <p>支持自然语言描述<br>如"膝盖上楼梯痛""硬拉后下背酸""久坐腰酸"</p>
+  </div>
+
+  <!-- Disclaimer -->
+  <footer class="disclaimer">
+    <p><strong>⚠️ 免责声明</strong></p>
+    <p>本工具提供康复训练思路参考，不构成医疗诊断或治疗建议。<br>如有明确伤病，请先就医。教练需根据客户实际情况判断适用性，疼痛加重请立即停止。</p>
+    <p style="margin-top:8px">内容参考：Magee骨科物理治疗评估、AAOS骨科术后康复、基础肌动学等10本专业书籍</p>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="js/knowledge-base.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
