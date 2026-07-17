@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>思维导图编辑器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;display:flex;height:100vh;background:#f0fdf4}
+#side{width:400px;min-width:280px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;overflow:hidden}
+#msg{padding:6px 12px;background:#fef3c7;font-size:11px;color:#92400e;border-bottom:1px solid #fde68a;flex-shrink:0}
+#tree{flex:1;overflow-y:auto;padding:4px 0}
+.tr-arrow{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:12px;color:#059669;border-radius:4px;border:1px solid #d1d5db;background:#f9fafb;flex-shrink:0;margin-right:6px}
+.tr-label{cursor:pointer;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#mh{padding:12px 18px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#mh h2{font-size:17px}
+.badge{font-size:11px;padding:3px 8px;border-radius:8px;color:#fff}
+#det{flex:1;overflow-y:auto;padding:16px 18px}
+.fd{margin-bottom:14px}
+.fd label{font-size:11px;color:#6b7280;display:block;margin-bottom:3px;font-weight:600}
+.fd input,.fd textarea{width:100%;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:inherit;outline:none}
+.fd input:focus,.fd textarea:focus{border-color:#059669}
+.fd textarea{min-height:70px;resize:vertical}
+.btns{display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 16px}
+.btns button{padding:7px 14px;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer;border:1.5px solid #e5e7eb;background:#fff}
+.btns button:hover{background:#f3f4f6}
+.pri{background:#059669!important;color:#fff!important;border-color:#059669!important}
+.dgr{background:#fef2f2!important;color:#dc2626!important;border-color:#fecaca!important}
+.emp{text-align:center;padding:50px 20px;color:#9ca3af}.emp .ic{font-size:42px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div id="side">
+<div id="msg">加载中...</div>
+<div id="tree"></div>
+</div>
+<div id="main">
+<div id="mh"><h2 id="detTitle">选择节点</h2><span class="badge" id="detBadge" style="display:none"></span></div>
+<div id="det"><div class="emp"><div class="ic">👆</div><p>左侧操作</p></div></div>
+<div class="btns" id="actBar" style="display:none">
+<button onclick="addChild()">+子</button><button onclick="addSib()">+同级</button>
+<button class="pri" onclick="doExport()">导出</button><button class="pri" onclick="doImport()" style="background:#2563eb">导入</button>
+<button class="dgr" onclick="doDelete()">删除</button><button onclick="doReset()">重置</button>
+</div>
+</div>
+<script>
+// ===== INIT =====
+var tree=[], sel=null, _ready=false, CLR={部位:'#059669',症状:'#2563eb',根源:'#d97706',手法:'#9333ea',训练:'#dc2626'};
+function log(s){document.getElementById('msg').textContent=s;}
+
+// Fetch data from API
+log('Fetching data...');
+fetch('/api/tree').then(function(r){return r.json()}).then(function(data){
+  // Convert flat joint map to tree
+  tree = [];
+  var joints = ['膝关节','肩关节','腰椎','颈椎','髋关节','踝关节','肘关节','腕关节','其他'];
+  var emojis = {膝关节:'🦵',肩关节:'💪',腰椎:'🔙',颈椎:'🧣',髋关节:'🦿',踝关节:'🦶',肘关节:'💪',腕关节:'🤲'};
+  for (var j=0;j<joints.length;j++) {
+    var jn = joints[j];
+    var symptoms = data[jn] || [];
+    var jnode = {id:'j_'+jn,name:(emojis[jn]||'')+' '+jn,type:'部位',children:[],expanded:false};
+    for (var s=0;s<symptoms.length;s++) {
+      jnode.children.push({id:'s_'+jn+'_'+s,name:symptoms[s],type:'症状',children:[],expanded:false});
+    }
+    if (jnode.children.length>0) tree.push(jnode);
+  }
+  // Try localStorage
+  try {
+    var raw = localStorage.getItem('ai_rehab_v8');
+    if (raw) { var d=JSON.parse(raw); if(Array.isArray(d)&&d.length>0) tree=d; log('已恢复本地数据'); }
+  } catch(e){}
+  renderAll();
+  _ready=true;
+  log('就绪 - '+tree.length+' 部位');
+}).catch(function(e){log('加载失败: '+e.message);});
+
+// ===== CORE =====
+function findNode(nodes,id){
+  for(var i=0;i<nodes.length;i++){if(nodes[i].id===id)return nodes[i];if(nodes[i].children){var r=findNode(nodes[i].children,id);if(r)return r;}}
+  return null;
+}
+function toggleNode(id){var n=findNode(tree,id);if(n){n.expanded=!n.expanded;renderAll();log('切换:'+n.name);}}
+function selectNode(id){var n=findNode(tree,id);if(n){sel=n;renderAll();showDetail(n);}}
+
+function renderAll(){
+  var el=document.getElementById('tree');
+  el.innerHTML = renderNodes(tree,0);
+  // Re-attach event delegation
+  el.onclick = function(e){
+    var t=e.target;
+    if(t.classList.contains('tr-arrow')){e.stopPropagation();var id=t.getAttribute('data-id');if(id)toggleNode(id);}
+    else if(t.classList.contains('tr-label')){e.stopPropagation();var id=t.getAttribute('data-id');if(id)selectNode(id);}
+  };
+}
+function renderNodes(nodes,lev){
+  var h='',pad=lev*16;
+  for(var i=0;i<nodes.length;i++){
+    var n=nodes[i],hk=n.children&&n.children.length>0;
+    var sc=(sel&&sel.id===n.id)?'background:#d1fae5;border-left:3px solid #059669;':'border-left:3px solid transparent;';
+    var cl=CLR[n.type]||'#6b7280';
+    h+='<div style="padding:1px 4px;margin:1px 3px;border-radius:6px;'+sc+'">';
+    h+='<div style="display:flex;align-items:center;padding:3px 6px;padding-left:'+(pad+6)+'px;border-radius:0 6px 6px 0">';
+    if(hk)h+='<span class="tr-arrow" data-id="'+n.id+'">'+(n.expanded?'[-]':'[+]')+'</span>';
+    else h+='<span style="width:22px;height:22px;flex-shrink:0;margin-right:6px"></span>';
+    h+='<span style="width:8px;height:8px;border-radius:2px;background:'+cl+';flex-shrink:0;margin-right:6px"></span>';
+    h+='<span class="tr-label" data-id="'+n.id+'">'+escHtml(n.name)+'</span>';
+    h+='<span style="font-size:9px;padding:1px 5px;border-radius:7px;margin-left:auto;flex-shrink:0;color:#fff;background:'+cl+'">'+n.type+'</span>';
+    h+='</div>';
+    if(hk&&n.expanded)h+=renderNodes(n.children,lev+1);
+    h+='</div>';
+  }
+  return h;
+}
+function escHtml(s){s=s||'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){s=s||'';return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+function showDetail(n){
+  if(!n)return;
+  document.getElementById('detTitle').textContent=n.name;
+  var b=document.getElementById('detBadge');b.textContent=n.type;b.style.display='inline-block';b.style.background=CLR[n.type]||'#6b7280';
+  document.getElementById('actBar').style.display='flex';
+  var h='<div class="fd"><label>名称</label><input id="eName" value="'+escAttr(n.name)+'" onchange="saveF(\'name\')"></div>';
+  h+='<div class="fd"><label>类型</label><input value="'+n.type+'" disabled style="background:#f9fafb"></div>';
+  if(n.type==='症状'){h+='<div class="fd"><label>同义词</label><input id="eSyn" value="'+escAttr((n.synonyms||[]).join(', '))+'" onchange="saveF(\'synonyms\')"></div>';h+='<div class="fd"><label>禁忌</label><input id="eContra" value="'+escAttr((n.contra||[]).join(', '))+'" onchange="saveF(\'contra\')"></div>';}
+  if(n.type==='根源'){h+='<div class="fd"><label>可能性</label><input id="eLikely" value="'+escAttr(n.likelihood||'')+'" onchange="saveF(\'likelihood\')"></div>';h+='<div class="fd"><label>原理简析</label><textarea id="eExplain" onchange="saveF(\'explain\')">'+escHtml(n.explain||'')+'</textarea></div>';}
+  if(n.type==='手法'){h+='<div class="fd"><label>操作描述</label><textarea id="eDesc" onchange="saveF(\'desc\')">'+escHtml(n.desc||'')+'</textarea></div>';}
+  if(n.type==='训练'){h+='<div class="fd"><label>组数次数</label><input id="eSets" value="'+escAttr(n.sets||'')+'" onchange="saveF(\'sets\')"></div>';h+='<div class="fd"><label>训练重点</label><input id="eFocus" value="'+escAttr(n.focus||'')+'" onchange="saveF(\'focus\')"></div>';h+='<div class="fd"><label>关键细节</label><textarea id="eKP" onchange="saveF(\'key_points\')">'+escHtml(n.key_points||'')+'</textarea></div>';h+='<div class="fd"><label>常见错误</label><textarea id="eErr" onchange="saveF(\'common_errors\')">'+escHtml(n.common_errors||'')+'</textarea></div>';h+='<div class="fd"><label>退阶</label><input id="eReg" value="'+escAttr(n.regression||'')+'" onchange="saveF(\'regression\')"></div>';h+='<div class="fd"><label>进阶</label><input id="eProg" value="'+escAttr(n.progression||'')+'" onchange="saveF(\'progression\')"></div>';}
+  document.getElementById('det').innerHTML=h;
+}
+function saveF(fld){
+  if(!sel)return;
+  var m={name:'eName',synonyms:'eSyn',contra:'eContra',likelihood:'eLikely',explain:'eExplain',desc:'eDesc',sets:'eSets',focus:'eFocus',key_points:'eKP',common_errors:'eErr',regression:'eReg',progression:'eProg'};
+  var el=document.getElementById(m[fld]);if(!el)return;
+  var v=el.value;if(fld==='synonyms'||fld==='contra')v=v.split(',').map(function(s){return s.trim()}).filter(Boolean);
+  sel[fld]=v;renderAll();doSave();
+}
+function findParent(nodes,target,p){for(var i=0;i<nodes.length;i++){if(nodes[i].id===target.id)return p;if(nodes[i].children){var r=findParent(nodes[i].children,target,nodes[i]);if(r)return r;}}return null;}
+function addChild(){
+  if(!sel)return;if(!sel.children)sel.children=[];
+  var nt;if(sel.type==='根源'){nt=prompt('"手法"或"训练"','训练');if(nt!=='手法'&&nt!=='训练')return;}
+  else{var tm={部位:'症状',症状:'根源',手法:'训练'};nt=tm[sel.type];if(!nt){alert('不支持');return;}}
+  sel.children.push({id:'n_'+Date.now(),name:'新'+nt,type:nt,explain:'',desc:'',sets:'',focus:'',key_points:'',common_errors:'',regression:'',progression:'',synonyms:[],joints:[],contra:[],likelihood:'',children:[],expanded:false});
+  sel.expanded=true;renderAll();sel=sel.children[sel.children.length-1];showDetail(sel);doSave();
+}
+function addSib(){
+  if(!sel)return;var p=findParent(tree,sel,null);
+  if(!p){alert('根节点不可添加同级');return;}if(!p.children)p.children=[];
+  p.children.push({id:'n_'+Date.now(),name:'新'+sel.type,type:sel.type,explain:'',desc:'',sets:'',focus:'',key_points:'',common_errors:'',regression:'',progression:'',synonyms:[],joints:[],contra:[],likelihood:'',children:[],expanded:false});
+  p.expanded=true;renderAll();sel=p.children[p.children.length-1];showDetail(sel);doSave();
+}
+function doDelete(){
+  if(!sel)return;var p=findParent(tree,sel,null);
+  if(!p){alert('根节点不可删除');return;}if(!confirm('删除 "'+sel.name+'"？'))return;
+  p.children=p.children.filter(function(c){return c.id!==sel.id});
+  sel=null;document.getElementById('det').innerHTML='';document.getElementById('actBar').style.display='none';
+  document.getElementById('detTitle').textContent='选择节点';document.getElementById('detBadge').style.display='none';
+  renderAll();doSave();
+}
+function doSave(){if(!_ready)return;try{localStorage.setItem('ai_rehab_v8',JSON.stringify(tree));}catch(e){}}
+function doExport(){var b=new Blob([JSON.stringify(tree,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='symptoms_edited.json';a.click();doSave();log('已导出');}
+function doImport(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();
+    r.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(!Array.isArray(d)||d.length===0){alert('格式错误');return;}
+      var clean=JSON.parse(JSON.stringify(d));(function fix(ns){for(var i=0;i<ns.length;i++){var n=ns[i];if(!n.children||!Array.isArray(n.children))n.children=[];if(n.expanded===undefined||n.expanded===null)n.expanded=false;if(!n.id||typeof n.id!=='string')n.id='imp_'+Date.now()+'_'+i;if(!n.type)n.type='症状';fix(n.children);}})(clean);
+      tree=clean;sel=null;localStorage.setItem('ai_rehab_v8',JSON.stringify(tree));renderAll();log('已导入:'+tree.length+'部位');
+    }catch(err){alert('导入失败:'+err.message);}};r.readAsText(f);};inp.click();
+}
+function doReset(){if(!confirm('重置?'))return;localStorage.removeItem('ai_rehab_v8');location.reload();}
+</script>
+</body>
+</html>

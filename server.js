@@ -79,6 +79,19 @@ app.get('/api/joints', (req, res) => {
   res.json(getSymptomsByJoint());
 });
 
+
+// API: 树形数据（供编辑器使用）
+app.get('/api/tree', (req, res) => {
+  try {
+    const tree = require('./js/knowledge-base').getSymptomsByJoint();
+    res.json(tree);
+  } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+// 编辑器页面
+app.get('/editor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'editor.html'));
+});
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
